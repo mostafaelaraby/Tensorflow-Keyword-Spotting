@@ -1,0 +1,40 @@
+general_params:
+  seed: 2017
+  unknown_percentage: 10
+  silence_percentage: 10
+  validation_percentage: 10
+  testing_percentage: 10
+paths:
+  data_path: 'data/train'
+  model_path: 'data/model'
+  tmp_dir: 'data/tmp'
+  predict_path: 'data/test'
+  background_noise: '_background_noise_'
+classes: ['yes', 'no', 'up', 'down', 'left', 'right', 'on', 'off', 'stop', 'go' ]
+wav_reading_params:
+  sample_rate: 16000
+  time_shift_ms: 100
+  clip_duration_ms: 1000
+  window_size_ms: 30
+  window_stride_ms: 10
+  dct_coefficient_count: 40
+  fingerprint_type: 'mfcc'
+  with_ctc: True
+  background_volume: 0.1
+  background_frequency: 0.8
+model: lstm
+model_params:
+  loss: 'ctc'
+  optimizer: 'Momentum'
+  training_steps: '1000,2000'
+  learning_rate: '0.005,0.001'
+  save_eval_step_interval: 1000
+  dropout: 0.8
+  batch_size: 128
+  rnd_mini_batches: False
+augmentation:
+  ops: ['speed', 'stretch']
+  percentage: 10
+mode: 'test'
+validation_list: 'data/train/validation_list.txt'
+testing_list: 'data/train/testing_list.txt'
