@@ -3,7 +3,6 @@ from AudioReader import AudioReader
 import numpy as np
 import pandas as pd
 import os
-from utils import convert_batch_to_ctc_format
 from tensorflow.python.framework import ops
 
 
@@ -80,6 +79,7 @@ class Estimator:
         self.start_step = 1
         tf.logging.info('Training from step: %d ', self.start_step)
         tf.train.write_graph(self.sess.graph_def, self.model_path, model_name + '.pbtxt')
+        self.model  = model
 
     def load(self, checkpoint_path):
         self.saver.restore(self.sess, checkpoint_path)
@@ -109,7 +109,7 @@ class Estimator:
                                                                                                 self.batch_size,
                                                                                                 training_step,features_2d=self.features_2d)
             if self.with_ctc:
-                train_inputs, train_targets, train_seq_len = convert_batch_to_ctc_format(train_fingerprints, f_names,self.audio_processor)
+                train_inputs, train_targets, train_seq_len = self.model.convert_batch_to_ctc_format(train_fingerprints, f_names,self.audio_processor)
                 train_accuracy = 0
                 loss_value = 0
                 for itm_index, train_itm in enumerate(train_inputs):
@@ -208,7 +208,7 @@ class Estimator:
                                                                                             0.0, 0, 'testing',
                                                                                             self.sess,self.features_2d)
             if self.with_ctc:
-                test_fingerprints, test_ground_truth, test_seq_len = convert_batch_to_ctc_format(test_fingerprints, fnames,self.audio_processor)
+                test_fingerprints, test_ground_truth, test_seq_len = self.model.convert_batch_to_ctc_format(test_fingerprints, fnames,self.audio_processor)
                 test_preds = []
                 for itm_index, eval_itm in enumerate(test_fingerprints):
                     pred = self.sess.run(
@@ -239,7 +239,7 @@ class Estimator:
     def eval(self, eval_fingerprints, eval_ground_truth, f_names, batch_size_local, set_size):
         conf_matrix = None
         if self.with_ctc:
-            eval_inputs, eval_targets, eval_seq_len = convert_batch_to_ctc_format(eval_fingerprints, f_names,self.audio_processor)
+            eval_inputs, eval_targets, eval_seq_len = self.model.convert_batch_to_ctc_format(eval_fingerprints, f_names,self.audio_processor)
             eval_accuracy = 0
             for itm_index, eval_itm in enumerate(eval_inputs):
                 eval_summary, accuracy, val_conf_matrix = self.sess.run(

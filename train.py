@@ -1,8 +1,8 @@
 import tensorflow as tf
-from Model import Model
 from utils import truncate_dir
 from Estimator import Estimator
 from ConfigParser import ConfigParser
+from utils import model_factory_to_object
 
 Config = None
 
@@ -15,7 +15,8 @@ def main(_):
     learning_rates_list = list(map(float, Config.learning_rate.split(',')))
     #todo check for the latest checkpoint for the model that needs training
     #update train step number to continue training
-    model = Model(optimizer=Config.optimizer, loss=Config.loss, model_settings=Config.model_settings, model=Config.model_name, train=True,num_hidden=Config.num_hidden,num_layers=Config.num_layers)
+    model_obj = model_factory_to_object(Config.model_name)
+    model = model_obj(optimizer=Config.optimizer, loss=Config.loss, model_settings=Config.model_settings, train=True,num_hidden=Config.num_hidden,num_layers=Config.num_layers)
     estimator = Estimator(model_name=Config.model_name, model=model,data_path=Config.data_path,model_path=Config.model_path,tmp_dir=Config.tmp_dir,
                           eval_save_every_step=Config.save_eval_step_interval,
                           training_steps_list=training_steps_list, learning_rates_list=learning_rates_list,

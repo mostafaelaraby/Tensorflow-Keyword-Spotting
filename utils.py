@@ -5,14 +5,10 @@ from tensorflow.python.util import compat
 import librosa
 import numpy as np
 import cv2
-import tensorflow as tf
 import shutil
 
-SPACE_TOKEN = '<space>'
-SPACE_INDEX = 0
-FIRST_INDEX = ord('a') - 1
+
 speaker_pattern = re.compile(r'([^_/]+)_\w+\.wav$')
-reader = None
 
 def truncate_dir(in_dir):
     if os.path.isdir(in_dir):
@@ -106,6 +102,17 @@ def which_set(filename, validation_percentage, testing_percentage,max_num_wavs_p
     else:
         return 'training'
 
+def model_factory_to_object(model_name):
+    import glob
+    avail_models = [model.replace('.py','').replace('Models/','') for model in glob.glob('Models/*.py') if 'init' not in model and 'basemodel' not in model]
+    class_name = 'SanityModel'
+    for model in avail_models:
+        if model_name in model.lower():
+            class_name = model
+    import importlib
+    model_ = getattr(importlib.import_module('Models.'+class_name), class_name)
+    return model_
+
 
 def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
                            window_size_ms, window_stride_ms,
@@ -146,77 +153,3 @@ def prepare_model_settings(label_count, sample_rate, clip_duration_ms,
         'max_num_wavs_per_class': max_num_wavs_per_class
     }
 
-
-def convert_batch_to_ctc_format(inputs, fnames,audio_reader):
-    """
-    Converts batch to ctc format
-    :param input sequences
-    :param filenames used to get parent folder holding label text
-    :return: ctc formatted data for ctc training
-    """
-    train_inputs = []
-    train_targets = []
-    train_inputs_len = []
-    for input_index, input_fingerprint in enumerate(inputs):
-        # Transform in 3D array
-        train_input = input_fingerprint
-        train_input = np.asarray(train_input[np.newaxis, :])
-        train_input = (train_input - np.mean(train_input)) / np.std(train_input)
-        train_seq_len = [train_input.shape[1]]
-        target = get_file_index(fnames[input_index]).split('/')[0].strip()
-        target = target.replace(' ','  ')# to add space token in case of any ome found
-        target = target.split(' ')
-        # Adding blank label
-        target = np.hstack([SPACE_TOKEN if x == '' else list(x) for x in target])
-        # Transform char into index
-        target = np.asarray([SPACE_INDEX if x == SPACE_TOKEN else ord(x) - FIRST_INDEX for x in target])
-
-        # Creating sparse representation to feed the placeholder
-        target = sparse_tuple_from([target])
-        train_targets.append(target)
-        train_inputs.append(train_input)
-        train_inputs_len.append(train_seq_len)
-    return train_inputs, train_targets, train_inputs_len
-
-
-def sparse_tuple_from(sequences, dtype=np.int32):
-    """Create a sparse representention of x.
-    Args:
-        sequences: a list of lists of type dtype where each element is a sequence
-        dtype: type of output sequence
-    Returns:
-        A tuple with (indices, values, shape)
-    """
-    indices = []
-    values = []
-
-    for n, seq in enumerate(sequences):
-        indices.extend(zip([n] * len(seq), range(len(seq))))
-        values.extend(seq)
-
-    indices = np.asarray(indices, dtype=np.int64)
-    values = np.asarray(values, dtype=dtype)
-    shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1] + 1], dtype=np.int64)
-
-    return indices, values, shape
-
-
-def convert_indices_to_label(predicted_tensor, audio_reader):
-    global reader
-    reader = audio_reader
-    predicted_text = tf.py_func(char_indices_to_label, [predicted_tensor.values], tf.string)
-    return tf.py_func(reader.text_to_label, [predicted_text], tf.int64)
-
-
-def char_indices_to_label(value):
-    global reader
-    predicted_text = ''.join([chr(x) for x in np.asarray(value) + FIRST_INDEX])
-    predicted_text = predicted_text.replace(chr(ord('z') + 1), '').replace(chr(ord('a') - 1), ' ').strip()
-
-    if predicted_text == '':
-        predicted_text = reader.words_list[0]
-    elif predicted_text in reader.words_list[2:]:
-        pass
-    else:
-        predicted_text = reader.words_list[1]
-    return predicted_text
